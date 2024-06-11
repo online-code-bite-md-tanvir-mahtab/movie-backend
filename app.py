@@ -69,6 +69,16 @@ class Booking(db.Model):
 
 
 
+class MovieRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    genre = db.Column(db.String(100))
+    rating = db.Column(db.Float)
+    release_date = db.Column(db.Date)
+
+    def __repr__(self):
+        return f"MovieRequest(name='{self.name}', genre='{self.genre}', rating={self.rating}, release_date={self.release_date})"
+
 
 @app.before_request
 def create_database():
@@ -287,6 +297,29 @@ def available_seats(hall_id):
     return jsonify({'available_seats': available_seats})
 
 
+@app.route('/movie_requests', methods=['POST'])
+def create_movie_request():
+    data = request.json
+    existing_request = MovieRequest.query.filter_by(
+        name=data['name'],
+        genre=data.get('genre'),
+        rating=data.get('rating'),
+        release_date=datetime.strptime(data['release_date'], '%Y-%m-%d').date()
+    ).first()
+
+    if existing_request:
+        return jsonify({"message": "Movie request already exists"}), 409
+
+    new_request = MovieRequest(
+        name=data['name'],
+        genre=data.get('genre'),
+        rating=data.get('rating'),
+        release_date=datetime.strptime(data['release_date'], '%Y-%m-%d').date()
+    )
+    db.session.add(new_request)
+    db.session.commit()
+
+    return jsonify({"message": "Movie request created successfully"}), 201
 
 
 
