@@ -19,6 +19,14 @@ class User(db.Model):
     phone = db.Column(db.String(15), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
     sessions = db.relationship('Session', backref='user', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'phone': self.phone
+        }
 
 
 class Session(db.Model):
@@ -39,6 +47,22 @@ class Movie(db.Model):
     def __repr__(self):
         return f"Movie(name={self.name}, category={self.category}, arrival_date={self.arrival_date}, rating={self.rating})"
     
+
+class Movies(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    release_date = db.Column(db.Date, nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    overview = db.Column(db.Text, nullable=True)
+    popularity = db.Column(db.Float, nullable=True)
+    vote_count = db.Column(db.Integer, nullable=True)
+    vote_average = db.Column(db.Float, nullable=True)
+    original_language = db.Column(db.String(50), nullable=True)
+    genre = db.Column(db.String(100), nullable=True)
+    poster_url = db.Column(db.String(255), nullable=True)
+
+    def __repr__(self):
+        return f'<Movie {self.title}>'
+
     
 class MovieHall(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -113,8 +137,9 @@ def createUser():
             new_user = User(username=userName, email=userEmail, phone=userPhone, password=userPassword)
             
             # Add the user to the database session and commit the transaction
-            db.session.add(new_user)
-            db.session.commit()
+            with app.app_context():
+                db.session.add(new_user)
+                db.session.commit()
             
             # Return a success message with the newly created user's details
             return jsonify({'message': 'User created successfully'}), 200
@@ -262,8 +287,9 @@ def book_seat():
         return jsonify({'message': f'Not enough seats available. Only {available_seats} seats left.'}), 400
 
     booking = Booking(movie_id=movie_id, hall_id=hall_id, user_id=user_id, seats=seats)
-    db.session.add(booking)
-    db.session.commit()
+    with app.app_context():
+        db.session.add(booking)
+        db.session.commit()
 
     return jsonify({'message': 'Booking successful'}), 200
 
@@ -316,12 +342,65 @@ def create_movie_request():
         rating=data.get('rating'),
         release_date=datetime.strptime(data['release_date'], '%Y-%m-%d').date()
     )
-    db.session.add(new_request)
-    db.session.commit()
+    with app.app_context():
+        db.session.add(new_request)
+        db.session.commit()
 
     return jsonify({"message": "Movie request created successfully"}), 201
 
+@app.route('/user/<int:user_id>', methods=['GET'])
+def get_user_info(user_id):
+    user = User.query.get(user_id)
+    if user:
+        return jsonify(user.to_dict()), 200
+    else:
+        return jsonify({'message': 'User not found'}), 404
+    
+    
+    
+@app.route('/add_movie', methods=['POST'])
+def add_movie():
+    data = request.json
 
+    if not data:
+        return jsonify({"error": "No input data provided"}), 400
+
+    try:
+        release_date = datetime.strptime(data['Release_Date'], '%Y-%m-%d').date()
+        title = data['Title']
+        overview = data['Overview']
+        popularity = float(data['Popularity']) if data['Popularity'] else None
+        vote_count = int(data['Vote_Count']) if data['Vote_Count'] else None
+        vote_average = float(data['Vote_Average']) if data['Vote_Average'] else None
+        original_language = data['Original_Language']
+        genre = data['Genre']
+        poster_url = data['Poster_Url']
+
+        new_movie = Movies(
+            release_date=release_date,
+            title=title,
+            overview=overview,
+            popularity=popularity,
+            vote_count=vote_count,
+            vote_average=vote_average,
+            original_language=original_language,
+            genre=genre,
+            poster_url=poster_url
+        )
+        with app.app_context():
+            db.session.add(new_movie)
+            db.session.commit()
+
+        return jsonify({"message": "Movie added successfully"}), 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+    
+@app.route('/movies', methods=['GET'])
+def get_movies():
+    movies = Movies.query.all()
+    return jsonify([movie.to_dict() for movie in movies]), 200
 
 
 if __name__ == '__main__':
