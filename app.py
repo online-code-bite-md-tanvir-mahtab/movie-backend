@@ -397,8 +397,8 @@ def add_movie():
         return jsonify({"error": str(e)}), 500
     
     
-@app.route('/movies', methods=['GET'])
-def get_movies():
+@app.route('/allmovies', methods=['GET'])
+def get_all_movies():
     movies = Movies.query.all()
     return jsonify([movie.to_dict() for movie in movies]), 200
 
